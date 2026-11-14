@@ -8,7 +8,6 @@ use hardy_bpv7::builder::Builder;
 use hardy_bpv7::creation_timestamp::CreationTimestamp;
 use hardy_bpv7::eid::Eid;
 use hardy_cbor::encode::{Encoder, Tagged, ToCbor};
-use hardy_proto::client::RemoteBpa;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -83,6 +82,14 @@ struct Args {
     /// Security Source EID for BPSec BIB (defaults to bundle source EID)
     #[arg(long = "security-source")]
     security_source: Option<String>,
+
+    /// Optional Bearer authentication token for protected gRPC BPA endpoints
+    #[arg(long, env = "DTN_HDY_TOKEN")]
+    token: Option<String>,
+
+    /// Optional Unix Domain Socket path for connecting to a protected local BPA
+    #[arg(long, env = "DTN_HDY_SOCKET")]
+    socket: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -197,7 +204,8 @@ async fn main() -> Result<()> {
         eprintln!("Connecting to Hardy BPA at {}", grpc_addr);
     }
 
-    let remote_bpa = RemoteBpa::new(grpc_addr);
+    let (remote_bpa, _grpc_guard) =
+        dtnpm_core::create_remote_bpa(&grpc_addr, args.token.as_deref(), args.socket.as_deref())?;
     let sender_cla = Arc::new(NoopSenderCla::default());
 
     let cla_name = format!("dtnbasket-cli-{}", std::process::id());

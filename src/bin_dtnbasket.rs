@@ -11,7 +11,6 @@ use hardy_bpv7::creation_timestamp::CreationTimestamp;
 use hardy_bpv7::eid::{Eid, Service};
 use hardy_cbor::decode;
 use hardy_cbor::encode::{self, Tagged};
-use hardy_proto::client::RemoteBpa;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme};
@@ -123,6 +122,14 @@ struct Args {
     /// Security Source EID for BPSec BIB (defaults to bundle source EID)
     #[arg(long = "security-source")]
     security_source: Option<String>,
+
+    /// Optional Bearer authentication token for protected gRPC BPA endpoints
+    #[arg(long, env = "DTN_HDY_TOKEN")]
+    token: Option<String>,
+
+    /// Optional Unix Domain Socket path for connecting to a protected local BPA
+    #[arg(long, env = "DTN_HDY_SOCKET")]
+    socket: Option<String>,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -1589,7 +1596,8 @@ async fn main() -> Result<()> {
 
     let policy = args.verify_policy;
 
-    let remote_bpa = RemoteBpa::new(grpc_addr);
+    let (remote_bpa, _grpc_guard) =
+        dtnpm_core::create_remote_bpa(&grpc_addr, args.token.as_deref(), args.socket.as_deref())?;
 
     let service = BasketService::new(
         config.clone(),
