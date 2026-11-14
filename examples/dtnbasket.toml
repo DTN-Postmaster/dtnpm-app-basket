@@ -12,12 +12,20 @@ insecure_tls = false
 # Any access outside these folders will be rejected (SSRF/path-traversal protection).
 allowed_dirs = [
     "/home/loic/quickref",
-    "/var/log",
-    "./src/bin",
+    "./src",
 ]
+
+[security]
+# Fail-closed defaults: set to true only in closed development or pre-secured links.
+allow_private_ips = false
+allow_third_party_reply_to = false
+
+[limits]
+# Maximum octets per fetched item (50 MiB) and cumulative per basket request (100 MiB).
+max_item_size = 52428800
+max_bundle_size = 104857600
 
 [mappings]
 # Static mappings from uniform resource names (URN) to local file system paths
 "urn:dtn:doc:yaesu-ft817-um-fr" = "/home/loic/quickref/FT-817_user_FR.pdf"
 "urn:dtn:doc:rust-cheatsheet"  = "/home/loic/quickref/rust_cheatsheet.pdf"
-"urn:dtn:system-status"        = "/var/log/syslog"

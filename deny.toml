@@ -7,8 +7,9 @@ no-default-features = false
 
 [advisories]
 ignore = [
-    "RUSTSEC-2026-0459",
-    "RUSTSEC-2024-0449",
+    # VEX not_affected (CRA Annex I): transitive libsqlite3-sys v0.38.2 via dtnpm-core -> rusqlite v0.40.2;
+    # SQLite / -wal recovery paths are unreachable in dtnpm-app-basket. See SECURITY.md.
+    { id = "RUSTSEC-2026-0459", reason = "VEX not_affected: transitive via dtnpm-core -> rusqlite v0.40.2; dtnpm-app-basket never opens SQLite DB or -wal files" },
 ]
 
 [licenses]
