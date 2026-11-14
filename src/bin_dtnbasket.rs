@@ -1,8 +1,8 @@
 use anyhow::Result;
 use bytes::Bytes;
 use clap::Parser;
-use dtnpm_core::resolve_grpc_port;
 use dtnpm_core::cli_security::{KeyStore, VerifyPolicy, VerifyResult, load_key, verify_bundle};
+use dtnpm_core::resolve_grpc_port;
 use hardy_bpa::async_trait;
 use hardy_bpa::bpa::BpaRegistration;
 use hardy_bpa::services::{Service as BpaService, ServiceSink};
