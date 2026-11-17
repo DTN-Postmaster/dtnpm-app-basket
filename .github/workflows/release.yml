@@ -62,10 +62,26 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           targets: ${{ matrix.name == 'macos-universal' && 'x86_64-apple-darwin,aarch64-apple-darwin' || matrix.target }}
+      - name: Cache protoc
+        id: protoc-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/protoc
+          key: protoc-29.3-linux-x86_64
+      - name: Install protoc (cache miss)
+        if: steps.protoc-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o /tmp/protoc.zip "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip"
+          mkdir -p "$HOME/.local/protoc"
+          unzip -q /tmp/protoc.zip -d "$HOME/.local/protoc"
+      - name: Add protoc to PATH
+        run: echo "$HOME/.local/protoc/bin" >> "$GITHUB_PATH"
 
       - name: Install cargo-zigbuild
         if: matrix.use_zigbuild
         uses: taiki-e/install-action@fa5c9474ee639e735adbd1fd9d0ae24a5309bcf0 # cargo-zigbuild
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
