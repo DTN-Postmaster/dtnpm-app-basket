@@ -1,22 +1,22 @@
-# Guide de Contribution — `dtnpm-app-basket`
+# Contributing Guide — `dtnpm-app-basket`
 
-Ce guide présente les règles de développement et les exigences de sécurité pour l'application DTN Basket de `dtnpm-app-basket`.
-
----
-
-## 1. Principes Fondamentaux
-
-- **Zéro Panic / Zéro Unwrap** : Aucun appel `.unwrap()` ou `.expect()` en code de production.
-- **Sécurité Réseau et Anti-SSRF** :
-  - Tout accès réseau externe doit passer par le résolveur de sécurité `SafeDnsResolver`.
-  - Les redirections doivent être résolues manuellement pour bloquer le DNS Rebinding.
-  - L'accès aux réseaux privés nécessite l'opt-in explicite `allow_private_ips = true`.
-- **Traçabilité Architecturale (ADR)** :
-  - Tout changement protocolaire ou d'architecture de service doit faire l'objet d'un fichier ADR sous `adr/` et être indexé dans `adr/README.md`.
+This guide outlines the development rules and security requirements for the DTN Basket application in `dtnpm-app-basket`.
 
 ---
 
-## 2. Vérification Locale
+## 1. Core Principles
+
+- **Zero Panic / Zero Unwrap**: No `.unwrap()` or `.expect()` calls in production code.
+- **Network Security and Anti-SSRF**:
+  - All external network access must go through the `SafeDnsResolver` security resolver.
+  - Redirects must be resolved manually to block DNS Rebinding.
+  - Access to private networks requires the explicit opt-in `allow_private_ips = true`.
+- **Architectural Traceability (ADR)**:
+  - Any protocol or service architecture change must be documented in an ADR file under `adr/` and indexed in `adr/README.md`.
+
+---
+
+## 2. Local Verification
 
 ```bash
 cargo fmt --all -- --check

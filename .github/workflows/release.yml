@@ -46,8 +46,9 @@ jobs:
       - name: Checkout Hardy DTN workspace
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: ricktaylor/hardy
+          repository: loic-fejoz/hardy
           path: hardy
+          ref: main-dtnpm
       - name: Checkout dtnpm-core
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
