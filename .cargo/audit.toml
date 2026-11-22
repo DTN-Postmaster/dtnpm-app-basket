@@ -1,7 +1,2 @@
 [advisories]
-ignore = [
-    # VEX not_affected (CRA Annex I): libsqlite3-sys v0.38.2 (CVE-2026-119375) is pulled
-    # transitively via dtnpm-core -> rusqlite v0.40.2, but dtnpm-app-basket never invokes
-    # SQLite/rusqlite APIs or opens SQLite database / -wal files. See SECURITY.md.
-    "RUSTSEC-2026-0459",
-]
+ignore = []
