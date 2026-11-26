@@ -94,6 +94,25 @@ struct Args {
     /// Optional Unix Domain Socket path for connecting to a protected local BPA
     #[arg(long, env = "DTN_HDY_SOCKET")]
     socket: Option<String>,
+
+    /// Comma-separated APRS New n-N future path (e.g. 'VHF2-2,TCPCL1-1' or 'F4JXQ-9,ARES2-2,QO100-1-1')
+    #[arg(long = "aprs-path")]
+    aprs_path: Option<String>,
+
+    /// RFC 9171 Hop Count Block limit (Type 10, 1..=255)
+    #[arg(long = "hop-limit", visible_alias = "hop-count")]
+    hop_limit: Option<u8>,
+
+    /// Spray-and-Wait maximum copy quota / permit count (Block Type 194 & Type 200)
+    #[arg(
+        long = "spray-quota",
+        visible_aliases = ["spray-limit", "spray-copies", "max-copies"]
+    )]
+    spray_quota: Option<u32>,
+
+    /// Attach an empty TREB (Block Type 201) to record the forward hop trace (auto-enabled with --aprs-path or --spray-quota)
+    #[arg(long = "record-route", visible_alias = "treb")]
+    record_route: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -115,6 +134,11 @@ struct RequestFile {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    dtnpm_core::mesh_blocks::validate_routing_extensions(
+        args.hop_limit,
+        args.aprs_path.as_deref(),
+        args.spray_quota,
+    )?;
 
     // 1. Gather all request items
     let mut items = Vec::new();
@@ -317,9 +341,23 @@ async fn main() -> Result<()> {
     let payload_bytes = encoder.build();
 
     // 5. Build and send bundle
-    let (bundle, binbundle) = Builder::new(source_eid, destination_eid)
+    let builder = Builder::new(source_eid, destination_eid)
         .with_payload(payload_bytes.into())
-        .with_lifetime(std::time::Duration::from_secs(args.lifetime))
+        .with_lifetime(std::time::Duration::from_secs(args.lifetime));
+    let mut builder = dtnpm_core::mesh_blocks::apply_routing_extensions(
+        builder,
+        args.hop_limit,
+        args.aprs_path.as_deref(),
+        args.spray_quota,
+    )?;
+    if dtnpm_core::mesh_blocks::should_auto_seed_treb(
+        args.record_route,
+        args.aprs_path.as_deref(),
+        args.spray_quota,
+    ) {
+        builder = dtnpm_core::mesh_blocks::attach_empty_treb(builder)?;
+    }
+    let (bundle, binbundle) = builder
         .build(CreationTimestamp::now())
         .map_err(|e| anyhow::anyhow!("Failed to build request bundle: {e}"))?;
 

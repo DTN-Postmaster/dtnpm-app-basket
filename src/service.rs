@@ -247,7 +247,12 @@ impl BasketService {
         }
     }
 
-    pub async fn process_request(self: Arc<Self>, source: Eid, payload: Vec<u8>) -> Result<()> {
+    pub async fn process_request(
+        self: Arc<Self>,
+        source: Eid,
+        payload: Vec<u8>,
+        reply_routing: dtnpm_core::mesh_blocks::ReplyRoutingPlan,
+    ) -> Result<()> {
         let request = match decode::parse::<BasketRequest>(&payload) {
             Ok(req) => req,
             Err(e) => {
@@ -445,9 +450,20 @@ impl BasketService {
             .get()
             .ok_or_else(|| anyhow!("Sink not registered"))?;
 
-        let (control_bundle, control_bin) = Builder::new(local_eid.clone(), reply_dest.clone())
+        let reply_matches_source_node = reply_dest.to_node_id().ok().is_some()
+            && reply_dest.to_node_id().ok() == source.to_node_id().ok();
+        let active_plan = if reply_matches_source_node {
+            reply_routing
+        } else {
+            dtnpm_core::mesh_blocks::ReplyRoutingPlan::default()
+        };
+
+        let mut control_builder = Builder::new(local_eid.clone(), reply_dest.clone())
             .with_payload(cbor_bytes.into())
-            .with_lifetime(std::time::Duration::from_secs(default_lifetime))
+            .with_lifetime(std::time::Duration::from_secs(default_lifetime));
+        control_builder =
+            dtnpm_core::mesh_blocks::apply_reply_routing(control_builder, &active_plan)?;
+        let (control_bundle, control_bin) = control_builder
             .build(CreationTimestamp::now())
             .map_err(|e| anyhow!("Failed to build control bundle: {e}"))?;
 
@@ -456,9 +472,11 @@ impl BasketService {
 
         // Send raw content bundles
         for raw in raw_bundles_to_send {
-            let (raw_bundle, raw_bin) = Builder::new(local_eid.clone(), reply_dest.clone())
+            let mut raw_builder = Builder::new(local_eid.clone(), reply_dest.clone())
                 .with_payload(raw.bytes.into())
-                .with_lifetime(std::time::Duration::from_secs(raw.lifetime))
+                .with_lifetime(std::time::Duration::from_secs(raw.lifetime));
+            raw_builder = dtnpm_core::mesh_blocks::apply_reply_routing(raw_builder, &active_plan)?;
+            let (raw_bundle, raw_bin) = raw_builder
                 .build(CreationTimestamp::now())
                 .map_err(|e| anyhow!("Failed to build raw content bundle: {e}"))?;
 
@@ -906,8 +924,19 @@ impl BpaService for BasketServiceWrapper {
         stream: &mut dyn hardy_bpa::stream::Receiver<hardy_bpa::stream::Segment>,
     ) -> hardy_bpa::services::Result<()> {
         let data = hardy_bpa::stream::buffer_stream(stream, total_len).await?;
-        let (source, payload) = match hardy_bpv7::parse::parse(data.clone()) {
+        let (source, payload, reply_routing) = match hardy_bpv7::parse::parse(data.clone()) {
             Ok(parsed) => {
+                let local_eid = self
+                    .0
+                    .local_eid
+                    .get()
+                    .cloned()
+                    .unwrap_or_else(|| parsed.bundle.primary.destination.clone());
+                let reply_routing = dtnpm_core::mesh_blocks::derive_reply_routing(
+                    &parsed.bundle,
+                    &parsed.data,
+                    &local_eid,
+                );
                 let payload_bytes = parsed
                     .bundle
                     .blocks
@@ -915,9 +944,17 @@ impl BpaService for BasketServiceWrapper {
                     .and_then(|b| b.payload(&parsed.data))
                     .map(|bytes| bytes.to_vec())
                     .unwrap_or_else(|| data.to_vec());
-                (parsed.bundle.primary.id.source, payload_bytes)
+                (
+                    parsed.bundle.primary.id.source,
+                    payload_bytes,
+                    reply_routing,
+                )
             }
-            Err(_) => (Eid::Null, data.to_vec()),
+            Err(_) => (
+                Eid::Null,
+                data.to_vec(),
+                dtnpm_core::mesh_blocks::ReplyRoutingPlan::default(),
+            ),
         };
 
         if self.0.policy != VerifyPolicy::Ignore {
@@ -956,7 +993,10 @@ impl BpaService for BasketServiceWrapper {
 
         let service = self.0.clone();
         tokio::spawn(async move {
-            if let Err(e) = service.process_request(source, payload).await {
+            if let Err(e) = service
+                .process_request(source, payload, reply_routing)
+                .await
+            {
                 eprintln!("Error processing request: {}", e);
             }
         });
